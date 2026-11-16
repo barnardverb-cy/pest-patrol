@@ -1,0 +1,14 @@
+# Secret settings and keys: never commit these
+.env
+.env.*
+!.env.example
+
+# Files your computer makes by itself
+.DS_Store
+Thumbs.db
+
+# Old saved copies from before GitHub
+index-step*.html
+
+# Tools and downloads (for later lessons)
+node_modules/
