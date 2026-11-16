@@ -1,0 +1,1137 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pest Patrol - Shoo the Mosquitoes!</title>
+
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            min-height: 100vh;
+            background: #252d35;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+            font-family: Arial, sans-serif;
+        }
+
+        .game-container {
+            width: min(100%, 1000px);
+            text-align: center;
+        }
+
+        .game-title {
+            color: #ffe28a;
+            font-size: clamp(24px, 4vw, 38px);
+            font-weight: 900;
+            letter-spacing: 3px;
+            margin-bottom: 12px;
+            text-shadow: 3px 3px 0 #8b572a;
+        }
+
+        .game-subtitle {
+            color: white;
+            font-size: 13px;
+            margin-bottom: 15px;
+        }
+
+        .canvas-wrapper {
+            position: relative;
+            width: 100%;
+        }
+
+        canvas {
+            display: block;
+            width: 100%;
+            aspect-ratio: 5 / 3;
+            background: #f7dca0;
+            border: 6px solid #8b572a;
+            border-radius: 12px;
+            cursor: none;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.4);
+        }
+
+        .instructions {
+            color: white;
+            font-size: 14px;
+            margin-top: 14px;
+        }
+
+        .instructions span {
+            color: #ffe28a;
+            font-weight: bold;
+        }
+
+        .phone-warning {
+            color: #ffd58a;
+            font-size: 12px;
+            margin-top: 10px;
+        }
+
+        .credits {
+            color: #b9c0c7;
+            font-size: 12px;
+            margin-top: 12px;
+        }
+
+        /* Game-over screen */
+
+        .game-over {
+            position: absolute;
+            inset: 0;
+            display: none;
+            justify-content: center;
+            align-items: center;
+            background: rgba(25, 31, 36, 0.85);
+            border-radius: 8px;
+            padding: 15px;
+        }
+
+        .game-over-content {
+            background: #fff0bd;
+            border: 5px solid #8b572a;
+            border-radius: 18px;
+            padding: 30px 40px;
+            max-width: 90%;
+            width: 420px;
+            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.4);
+        }
+
+        .game-over h2 {
+            color: #c74635;
+            font-size: clamp(24px, 4vw, 36px);
+            margin-bottom: 12px;
+        }
+
+        .game-over p {
+            color: #754329;
+            font-size: 17px;
+            margin-bottom: 12px;
+        }
+
+        .final-score {
+            color: #b64a34;
+            font-size: 42px;
+            font-weight: 900;
+            margin: 12px 0 20px;
+        }
+
+        .restart-button {
+            background: #4c9b59;
+            color: white;
+            border: none;
+            padding: 14px 30px;
+            border-radius: 10px;
+            font-size: 17px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: background 0.2s, transform 0.2s;
+        }
+
+        .restart-button:hover {
+            background: #357b43;
+            transform: scale(1.05);
+        }
+
+        .restart-button:active {
+            transform: scale(0.97);
+        }
+    </style>
+</head>
+
+<body>
+
+    <main class="game-container">
+
+        <h1 class="game-title">PEST PATROL</h1>
+
+        <p class="game-subtitle">
+            Oh no! Mosquitoes are invading the sari-sari store!
+        </p>
+
+        <div class="canvas-wrapper">
+
+            <canvas id="gameCanvas" width="1000" height="600"></canvas>
+
+            <div class="game-over" id="gameOver">
+
+                <div class="game-over-content">
+
+                    <h2>TIME'S UP!</h2>
+
+                    <p>The store is finally mosquito-free!</p>
+
+                    <p>Your final score:</p>
+
+                    <div class="final-score" id="finalScore">0</div>
+
+                    <button class="restart-button" id="restartButton">
+                        PLAY AGAIN
+                    </button>
+
+                </div>
+
+            </div>
+
+        </div>
+
+        <p class="instructions">
+            <span>MOVE MOUSE</span> to aim &nbsp; | &nbsp;
+            <span>LEFT CLICK</span> to shoo mosquitoes!
+        </p>
+
+        <p class="phone-warning">
+            Note: This game is best played on a computer using a mouse.
+        </p>
+
+        <p class="credits">
+            Made by joshuadablo, with help from AI.
+        </p>
+
+    </main>
+
+    <script>
+
+        // ==========================================
+        // 1. CANVAS SETUP
+        // ==========================================
+
+        const canvas = document.getElementById("gameCanvas");
+        const ctx = canvas.getContext("2d");
+
+        const WIDTH = canvas.width;
+        const HEIGHT = canvas.height;
+
+        const gameOverScreen = document.getElementById("gameOver");
+        const finalScoreDisplay = document.getElementById("finalScore");
+        const restartButton = document.getElementById("restartButton");
+
+        let mouse = {
+            x: WIDTH / 2,
+            y: HEIGHT / 2
+        };
+
+        let mosquitoes = [];
+
+        // ==========================================
+        // 2. GAME VARIABLES
+        // ==========================================
+
+        let score = 0;
+        let timeLeft = 60;
+
+        let gameRunning = false;
+
+        let startTime = 0;
+        let lastSpawnTime = 0;
+        let animationFrame = null;
+
+        const ROUND_DURATION = 60;
+
+        // ==========================================
+        // 3. HIT FEEDBACK VARIABLES
+        // ==========================================
+
+        let hitEffects = [];
+
+        let screenShakeUntil = 0;
+        const SCREEN_SHAKE_DURATION = 140;
+        const SCREEN_SHAKE_INTENSITY = 5;
+
+        // ==========================================
+        // 4. SOUND EFFECTS - WEB AUDIO API
+        // ==========================================
+
+        let audioContext = null;
+
+        function getAudioContext() {
+
+            if (!audioContext) {
+
+                const AudioContextClass =
+                    window.AudioContext || window.webkitAudioContext;
+
+                if (!AudioContextClass) {
+                    return null;
+                }
+
+                audioContext = new AudioContextClass();
+            }
+
+            if (audioContext.state === "suspended") {
+                audioContext.resume();
+            }
+
+            return audioContext;
+        }
+
+        function playTone(
+            frequency,
+            endFrequency,
+            duration,
+            volume,
+            type = "sine",
+            delay = 0
+        ) {
+
+            const audio = getAudioContext();
+
+            if (!audio) {
+                return;
+            }
+
+            const oscillator = audio.createOscillator();
+            const gain = audio.createGain();
+
+            const startTime = audio.currentTime + delay;
+            const endTime = startTime + duration;
+
+            oscillator.type = type;
+
+            oscillator.frequency.setValueAtTime(
+                frequency,
+                startTime
+            );
+
+            oscillator.frequency.exponentialRampToValueAtTime(
+                Math.max(1, endFrequency),
+                endTime
+            );
+
+            gain.gain.setValueAtTime(0.0001, startTime);
+
+            gain.gain.exponentialRampToValueAtTime(
+                volume,
+                startTime + 0.01
+            );
+
+            gain.gain.exponentialRampToValueAtTime(
+                0.0001,
+                endTime
+            );
+
+            oscillator.connect(gain);
+            gain.connect(audio.destination);
+
+            oscillator.start(startTime);
+            oscillator.stop(endTime + 0.02);
+        }
+
+        // Short shooting sound
+        function playShootSound() {
+
+            playTone(
+                650,
+                180,
+                0.09,
+                0.12,
+                "square"
+            );
+        }
+
+        // Higher-pitched sound when a mosquito is hit
+        function playHitSound() {
+
+            playTone(
+                500,
+                1100,
+                0.12,
+                0.16,
+                "sine"
+            );
+
+            playTone(
+                1000,
+                1400,
+                0.08,
+                0.08,
+                "sine",
+                0.06
+            );
+        }
+
+        // Short ending sound when the game finishes
+        function playGameOverSound() {
+
+            playTone(
+                520,
+                390,
+                0.22,
+                0.15,
+                "triangle"
+            );
+
+            playTone(
+                390,
+                260,
+                0.28,
+                0.15,
+                "triangle",
+                0.2
+            );
+
+            playTone(
+                260,
+                180,
+                0.4,
+                0.15,
+                "triangle",
+                0.45
+            );
+        }
+
+        // ==========================================
+        // 5. HELPER FUNCTIONS
+        // ==========================================
+
+        function random(min, max) {
+            return Math.random() * (max - min) + min;
+        }
+
+        function drawRect(x, y, width, height, color) {
+            ctx.fillStyle = color;
+            ctx.fillRect(x, y, width, height);
+        }
+
+        function drawText(text, x, y, size, color, align = "center") {
+            ctx.fillStyle = color;
+            ctx.font = `bold ${size}px Arial`;
+            ctx.textAlign = align;
+            ctx.fillText(text, x, y);
+        }
+
+        function drawCircle(x, y, radius, color) {
+            ctx.beginPath();
+            ctx.arc(x, y, radius, 0, Math.PI * 2);
+            ctx.fillStyle = color;
+            ctx.fill();
+        }
+
+        function drawLine(x1, y1, x2, y2, color, width = 2) {
+            ctx.beginPath();
+            ctx.moveTo(x1, y1);
+            ctx.lineTo(x2, y2);
+            ctx.strokeStyle = color;
+            ctx.lineWidth = width;
+            ctx.stroke();
+        }
+
+        // ==========================================
+        // 6. DRAW STORE BACKGROUND
+        // ==========================================
+
+        function drawStore() {
+
+            // Wall
+            drawRect(0, 0, WIDTH, HEIGHT, "#f5dca5");
+
+            // Wall decoration
+            drawRect(0, 0, WIDTH, 85, "#e9a65c");
+            drawRect(0, 75, WIDTH, 12, "#a75d32");
+
+            // Store sign
+            drawRect(325, 15, 350, 55, "#c74635");
+
+            ctx.strokeStyle = "#ffe28a";
+            ctx.lineWidth = 4;
+            ctx.strokeRect(325, 15, 350, 55);
+
+            drawText("SARI-SARI STORE", 500, 51, 26, "#fff1b9");
+
+            // Left wall decoration
+            drawRect(20, 110, 190, 100, "#fff1c7");
+
+            drawText("PILI NA!", 115, 140, 20, "#b64a34");
+            drawText("BILI NA PO!", 115, 168, 17, "#b64a34");
+            drawText("SALAMAT!", 115, 191, 13, "#b64a34");
+
+            // Right wall decoration
+            drawRect(790, 110, 190, 100, "#d9edc1");
+
+            drawText("OPEN", 885, 150, 25, "#397d48");
+            drawText("DAILY", 885, 180, 18, "#397d48");
+
+            // Floor
+            drawRect(0, 485, WIDTH, 115, "#bd8250");
+
+            for (let x = 0; x < WIDTH; x += 100) {
+                drawLine(x, 485, x, HEIGHT, "#a76e43", 2);
+            }
+
+            drawLine(0, 540, WIDTH, 540, "#a76e43", 2);
+
+            // LEFT SHELF
+            drawRect(25, 235, 260, 245, "#9b5b32");
+            drawRect(35, 245, 240, 225, "#e7b875");
+
+            drawRect(25, 310, 260, 12, "#824524");
+            drawRect(25, 390, 260, 12, "#824524");
+            drawRect(25, 470, 260, 12, "#824524");
+
+            drawProducts(48, 255, 5, [
+                "#e94c3c", "#f7ce42", "#4ca6d8",
+                "#61b66b", "#d98ac4"
+            ]);
+
+            drawProducts(48, 335, 5, [
+                "#f7ce42", "#e94c3c", "#61b66b",
+                "#4ca6d8", "#e9a65c"
+            ]);
+
+            drawProducts(48, 415, 5, [
+                "#61b66b", "#d98ac4", "#f7ce42",
+                "#e94c3c", "#4ca6d8"
+            ]);
+
+            // RIGHT SHELF
+            drawRect(715, 235, 260, 245, "#9b5b32");
+            drawRect(725, 245, 240, 225, "#e7b875");
+
+            drawRect(715, 310, 260, 12, "#824524");
+            drawRect(715, 390, 260, 12, "#824524");
+            drawRect(715, 470, 260, 12, "#824524");
+
+            drawProducts(738, 255, 5, [
+                "#4ca6d8", "#f7ce42", "#e94c3c",
+                "#61b66b", "#d98ac4"
+            ]);
+
+            drawProducts(738, 335, 5, [
+                "#e94c3c", "#61b66b", "#4ca6d8",
+                "#f7ce42", "#e9a65c"
+            ]);
+
+            drawProducts(738, 415, 5, [
+                "#d98ac4", "#f7ce42", "#61b66b",
+                "#e94c3c", "#4ca6d8"
+            ]);
+
+            // COUNTER
+            drawRect(300, 420, 400, 30, "#754329");
+            drawRect(310, 425, 380, 12, "#bd8250");
+
+            drawRect(315, 450, 370, 95, "#d98d4e");
+            drawRect(330, 462, 340, 12, "#f4c17c");
+
+            drawRect(315, 535, 370, 10, "#754329");
+
+            drawRect(425, 480, 150, 40, "#fff0bd");
+            drawText("WELCOME!", 500, 506, 17, "#a34b31");
+
+            // Jars
+            drawJar(345, 380, "#e94c3c");
+            drawJar(405, 380, "#4ca6d8");
+            drawJar(590, 380, "#61b66b");
+            drawJar(650, 380, "#f7ce42");
+
+            // Store mat
+            drawRect(385, 565, 230, 20, "#e9c16c");
+            drawRect(395, 570, 210, 10, "#b64a34");
+
+            // Decorations
+            drawCircle(500, 100, 6, "#e94c3c");
+            drawCircle(500, 115, 6, "#f7ce42");
+            drawCircle(500, 130, 6, "#61b66b");
+
+            drawLine(500, 70, 500, 95, "#754329", 2);
+        }
+
+        // ==========================================
+        // 7. DRAW STORE PRODUCTS
+        // ==========================================
+
+        function drawProducts(startX, startY, count, colors) {
+
+            for (let i = 0; i < count; i++) {
+
+                const x = startX + i * 45;
+
+                drawRect(x, startY + 10, 31, 40, colors[i]);
+                drawRect(x + 5, startY + 5, 21, 6, "#fff0bd");
+                drawRect(x + 5, startY + 23, 21, 13, "#fff0bd");
+
+                drawCircle(x + 15, startY + 29, 4, "#d98d4e");
+            }
+        }
+
+        // ==========================================
+        // 8. DRAW JARS
+        // ==========================================
+
+        function drawJar(x, y, color) {
+
+            drawRect(x, y + 8, 35, 38, color);
+            drawRect(x + 5, y + 3, 25, 7, "#fff0bd");
+            drawRect(x + 3, y + 18, 29, 10, "#ffffff");
+
+            drawCircle(x + 12, y + 23, 3, color);
+            drawCircle(x + 23, y + 23, 3, color);
+        }
+
+        // ==========================================
+        // 9. MOSQUITO SETTINGS
+        // ==========================================
+
+        const mosquitoSizes = [
+            {
+                name: "small",
+                scale: 0.65,
+                duration: 3000,
+                points: 30
+            },
+            {
+                name: "medium",
+                scale: 1,
+                duration: 3500,
+                points: 20
+            },
+            {
+                name: "large",
+                scale: 1.4,
+                duration: 4200,
+                points: 10
+            }
+        ];
+
+        // ==========================================
+        // 10. CREATE MOSQUITO
+        // ==========================================
+
+        function spawnMosquito() {
+
+            if (!gameRunning || mosquitoes.length >= 9) {
+                return;
+            }
+
+            const selected = mosquitoSizes[
+                Math.floor(Math.random() * mosquitoSizes.length)
+            ];
+
+            mosquitoes.push({
+
+                x: random(310, 690),
+                y: random(150, 390),
+
+                scale: selected.scale,
+                name: selected.name,
+                points: selected.points,
+
+                createdAt: performance.now(),
+                duration: selected.duration,
+
+                wingPhase: random(0, Math.PI * 2)
+            });
+        }
+
+        // ==========================================
+        // 11. DRAW MOSQUITO
+        // ==========================================
+
+        function drawMosquito(mosquito, time) {
+
+            const x = mosquito.x;
+            const y = mosquito.y;
+            const scale = mosquito.scale;
+
+            ctx.save();
+
+            ctx.translate(x, y);
+            ctx.scale(scale, scale);
+
+            // Animated wings
+            const wingMovement = Math.sin(
+                time / 65 + mosquito.wingPhase
+            ) * 8;
+
+            ctx.save();
+
+            ctx.globalAlpha = 0.65;
+            ctx.fillStyle = "#d8f0ed";
+
+            ctx.beginPath();
+
+            ctx.ellipse(
+                -8, -12 - wingMovement,
+                8, 15, -0.6, 0, Math.PI * 2
+            );
+
+            ctx.fill();
+
+            ctx.beginPath();
+
+            ctx.ellipse(
+                8, -12 + wingMovement,
+                8, 15, 0.6, 0, Math.PI * 2
+            );
+
+            ctx.fill();
+
+            ctx.restore();
+
+            // Legs
+            drawLine(-5, 6, -18, 20, "#453d40", 2);
+            drawLine(0, 8, -5, 25, "#453d40", 2);
+            drawLine(5, 6, 18, 20, "#453d40", 2);
+
+            drawLine(-8, 0, -22, 5, "#453d40", 2);
+            drawLine(0, 3, 0, 22, "#453d40", 2);
+            drawLine(8, 0, 22, 5, "#453d40", 2);
+
+            // Body
+            drawCircle(0, 0, 8, "#41464e");
+
+            ctx.fillStyle = "#41464e";
+
+            ctx.beginPath();
+            ctx.ellipse(0, 0, 8, 15, 0, 0, Math.PI * 2);
+            ctx.fill();
+
+            // Body stripes
+            drawLine(-6, -5, 6, -5, "#f7ce42", 3);
+            drawLine(-7, 2, 7, 2, "#f7ce42", 3);
+            drawLine(-5, 9, 5, 9, "#f7ce42", 3);
+
+            // Head
+            drawCircle(0, -16, 9, "#454b55");
+
+            // Eyes
+            drawCircle(-3, -18, 2.5, "#ffffff");
+            drawCircle(3, -18, 2.5, "#ffffff");
+
+            drawCircle(-3, -18, 1.2, "#171717");
+            drawCircle(3, -18, 1.2, "#171717");
+
+            // Proboscis
+            drawLine(0, -23, 0, -35, "#454b55", 2);
+
+            // Antennae
+            drawLine(-5, -22, -12, -29, "#454b55", 1.5);
+            drawLine(5, -22, 12, -29, "#454b55", 1.5);
+
+            ctx.restore();
+        }
+
+        // ==========================================
+        // 12. HIT FEEDBACK: FLASH AND SCORE POPUP
+        // ==========================================
+
+        function createHitEffect(x, y, points) {
+
+            hitEffects.push({
+                x: x,
+                y: y,
+                points: points,
+                createdAt: performance.now(),
+                duration: 550
+            });
+
+            // Trigger screen shake
+            screenShakeUntil = performance.now() + SCREEN_SHAKE_DURATION;
+        }
+
+        function drawHitEffects(time) {
+
+            for (let i = hitEffects.length - 1; i >= 0; i--) {
+
+                const effect = hitEffects[i];
+
+                const elapsed = time - effect.createdAt;
+                const progress = elapsed / effect.duration;
+
+                // Remove finished effects
+                if (progress >= 1) {
+                    hitEffects.splice(i, 1);
+                    continue;
+                }
+
+                const remaining = 1 - progress;
+
+                ctx.save();
+
+                // Flash burst
+                const flashRadius = 8 + progress * 24;
+
+                ctx.globalAlpha = remaining;
+
+                ctx.fillStyle = "#fff5a6";
+                ctx.beginPath();
+
+                ctx.arc(
+                    effect.x,
+                    effect.y,
+                    flashRadius,
+                    0,
+                    Math.PI * 2
+                );
+
+                ctx.fill();
+
+                // Bright center
+                ctx.globalAlpha = remaining * 0.9;
+
+                ctx.fillStyle = "#ffffff";
+                ctx.beginPath();
+
+                ctx.arc(
+                    effect.x,
+                    effect.y,
+                    flashRadius * 0.4,
+                    0,
+                    Math.PI * 2
+                );
+
+                ctx.fill();
+
+                // Floating score text
+                ctx.globalAlpha = remaining;
+
+                ctx.font = "bold 20px Arial";
+                ctx.textAlign = "center";
+
+                ctx.lineWidth = 3;
+                ctx.strokeStyle = "#754329";
+
+                const popupY = effect.y - 28 - progress * 35;
+                const popupText = `+${effect.points}`;
+
+                ctx.strokeText(
+                    popupText,
+                    effect.x,
+                    popupY
+                );
+
+                ctx.fillStyle = "#ffe45c";
+
+                ctx.fillText(
+                    popupText,
+                    effect.x,
+                    popupY
+                );
+
+                ctx.restore();
+            }
+        }
+
+        // ==========================================
+        // 13. DRAW SCORE AND TIMER
+        // ==========================================
+
+        function drawGameHUD() {
+
+            // Score panel
+            drawRect(25, 100, 220, 65, "#fff0bd");
+
+            ctx.strokeStyle = "#8b572a";
+            ctx.lineWidth = 3;
+            ctx.strokeRect(25, 100, 220, 65);
+
+            drawText("SCORE", 45, 124, 15, "#8b572a", "left");
+
+            drawText(
+                score.toString().padStart(5, "0"),
+                45, 151, 27, "#c74635", "left"
+            );
+
+            // Timer panel
+            drawRect(755, 100, 220, 65, "#fff0bd");
+
+            ctx.strokeStyle = "#8b572a";
+            ctx.lineWidth = 3;
+            ctx.strokeRect(755, 100, 220, 65);
+
+            drawText("TIME LEFT", 775, 124, 15, "#8b572a", "left");
+
+            const timerColor = timeLeft <= 10 ? "#e52d2d" : "#397d48";
+
+            drawText(
+                `${timeLeft}s`,
+                775, 151, 27, timerColor, "left"
+            );
+        }
+
+        // ==========================================
+        // 14. DRAW MOUSE CROSSHAIR
+        // ==========================================
+
+        function drawCrosshair() {
+
+            const x = mouse.x;
+            const y = mouse.y;
+
+            ctx.save();
+
+            ctx.strokeStyle = "#ffffff";
+            ctx.lineWidth = 3;
+
+            ctx.beginPath();
+            ctx.arc(x, y, 15, 0, Math.PI * 2);
+            ctx.stroke();
+
+            ctx.strokeStyle = "#e94c3c";
+            ctx.lineWidth = 2;
+
+            ctx.beginPath();
+            ctx.arc(x, y, 10, 0, Math.PI * 2);
+            ctx.stroke();
+
+            drawLine(x - 22, y, x - 7, y, "#ffffff", 2);
+            drawLine(x + 7, y, x + 22, y, "#ffffff", 2);
+
+            drawLine(x, y - 22, x, y - 7, "#ffffff", 2);
+            drawLine(x, y + 7, x, y + 22, "#ffffff", 2);
+
+            ctx.restore();
+        }
+
+        // ==========================================
+        // 15. UPDATE MOUSE POSITION
+        // ==========================================
+
+        function updateMousePosition(event) {
+
+            const rect = canvas.getBoundingClientRect();
+
+            mouse.x = (event.clientX - rect.left) *
+                (WIDTH / rect.width);
+
+            mouse.y = (event.clientY - rect.top) *
+                (HEIGHT / rect.height);
+        }
+
+        canvas.addEventListener("mousemove", updateMousePosition);
+
+        // ==========================================
+        // 16. SHOOT MOSQUITO
+        // ==========================================
+
+        canvas.addEventListener("click", function(event) {
+
+            if (!gameRunning) {
+                return;
+            }
+
+            updateMousePosition(event);
+
+            // Play shooting sound on every gameplay click
+            playShootSound();
+
+            for (let i = mosquitoes.length - 1; i >= 0; i--) {
+
+                const mosquito = mosquitoes[i];
+
+                const dx = mouse.x - mosquito.x;
+                const dy = mouse.y - mosquito.y;
+
+                const hitRadius = 24 * mosquito.scale;
+
+                const distance = Math.sqrt(
+                    dx * dx + dy * dy
+                );
+
+                if (distance <= hitRadius) {
+
+                    // Award points
+                    score += mosquito.points;
+
+                    // Play hit sound
+                    playHitSound();
+
+                    // Create flash, floating score, and screen shake
+                    createHitEffect(
+                        mosquito.x,
+                        mosquito.y,
+                        mosquito.points
+                    );
+
+                    // Remove mosquito
+                    mosquitoes.splice(i, 1);
+
+                    break;
+                }
+            }
+        });
+
+        // ==========================================
+        // 17. END GAME
+        // ==========================================
+
+        function endGame() {
+
+            gameRunning = false;
+            timeLeft = 0;
+
+            finalScoreDisplay.textContent = score;
+
+            gameOverScreen.style.display = "flex";
+
+            // Play game-over sound
+            playGameOverSound();
+
+            // Prevent more mosquitoes from appearing
+            mosquitoes = [];
+
+            // Clear remaining hit effects
+            hitEffects = [];
+        }
+
+        // ==========================================
+        // 18. GAME LOOP
+        // ==========================================
+
+        function gameLoop(time) {
+
+            if (!gameRunning) {
+                return;
+            }
+
+            // Calculate remaining time
+            const elapsedSeconds = (time - startTime) / 1000;
+
+            timeLeft = Math.max(
+                0,
+                Math.ceil(ROUND_DURATION - elapsedSeconds)
+            );
+
+            // End game when timer reaches zero
+            if (elapsedSeconds >= ROUND_DURATION) {
+
+                endGame();
+
+                drawStore();
+                drawGameHUD();
+
+                return;
+            }
+
+            // Clear canvas
+            ctx.clearRect(0, 0, WIDTH, HEIGHT);
+
+            // Apply temporary screen shake
+            ctx.save();
+
+            if (time < screenShakeUntil) {
+
+                const shakeX = random(
+                    -SCREEN_SHAKE_INTENSITY,
+                    SCREEN_SHAKE_INTENSITY
+                );
+
+                const shakeY = random(
+                    -SCREEN_SHAKE_INTENSITY,
+                    SCREEN_SHAKE_INTENSITY
+                );
+
+                ctx.translate(shakeX, shakeY);
+            }
+
+            // Draw store
+            drawStore();
+
+            // Spawn mosquitoes periodically
+            if (time - lastSpawnTime > 900) {
+
+                spawnMosquito();
+
+                lastSpawnTime = time;
+            }
+
+            // Update and draw mosquitoes
+            for (let i = mosquitoes.length - 1; i >= 0; i--) {
+
+                const mosquito = mosquitoes[i];
+
+                // Remove mosquitoes after their lifetime
+                if (time - mosquito.createdAt > mosquito.duration) {
+
+                    mosquitoes.splice(i, 1);
+
+                    continue;
+                }
+
+                drawMosquito(mosquito, time);
+            }
+
+            // Draw hit feedback
+            drawHitEffects(time);
+
+            // Draw score and timer
+            drawGameHUD();
+
+            // Draw mouse aiming indicator
+            drawCrosshair();
+
+            // Restore canvas position after screen shake
+            ctx.restore();
+
+            // Continue animation
+            animationFrame = requestAnimationFrame(gameLoop);
+        }
+
+        // ==========================================
+        // 19. START OR RESTART GAME
+        // ==========================================
+
+        function startGame() {
+
+            // Stop previous animation if necessary
+            if (animationFrame !== null) {
+
+                cancelAnimationFrame(animationFrame);
+
+                animationFrame = null;
+            }
+
+            // Reset game variables
+            score = 0;
+            timeLeft = ROUND_DURATION;
+
+            mosquitoes = [];
+
+            // Reset hit feedback
+            hitEffects = [];
+            screenShakeUntil = 0;
+
+            startTime = performance.now();
+            lastSpawnTime = startTime;
+
+            gameRunning = true;
+
+            // Hide game-over screen
+            gameOverScreen.style.display = "none";
+
+            // Reset crosshair position
+            mouse.x = WIDTH / 2;
+            mouse.y = HEIGHT / 2;
+
+            // Start game loop
+            animationFrame = requestAnimationFrame(gameLoop);
+        }
+
+        // ==========================================
+        // 20. RESTART BUTTON
+        // ==========================================
+
+        restartButton.addEventListener("click", function() {
+
+            startGame();
+
+        });
+
+        // ==========================================
+        // 21. INITIALIZE GAME
+        // ==========================================
+
+        startGame();
+
+    </script>
+
+</body>
+</html>
