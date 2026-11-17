@@ -1,0 +1,3 @@
+- 2026-11-16: I want complete files, not fragments, when you change code.
+- 2026-11-16: Explain the cause of a bug in plain English before fixing it.
+- 2026-11-16: Small mosquitoes score 30, big ones 10
